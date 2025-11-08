@@ -71,8 +71,8 @@ class MotorControl:
     Limit_Param = [[12.5, 30, 10], [12.5, 50, 10], [12.5, 8, 28], [12.5, 10, 28],
                    # 6006           8006           8009            10010L         10010
                    [12.5, 45, 20], [12.5, 45, 40], [12.5, 45, 54], [12.5, 25, 200], [12.5, 20, 200],
-                   # H3510            DMG6215      DMH6220
-                   [12.5 , 280 , 1],[12.5 , 45 , 10],[12.5 , 45 , 10]]
+                   # H3510            DMG6215      DMH6220                  DMJH11
+                   [12.5 , 280 , 1],[12.5 , 45 , 10],[12.5 , 45 , 10],  [12.5 , 10 , 12]]
 
     def __init__(self, serial_device):
         """
@@ -194,6 +194,59 @@ class MotorControl:
         data_buf[5] = Vel_uint >> 8
         data_buf[6] = ides_uint & 0xff
         data_buf[7] = ides_uint >> 8
+        self.__send_data(motorid, data_buf)
+        self.recv()  # receive the data from serial port
+
+    def control_Pos_Vel_CSP(self, Motor, P_desired: float, V_desired: float):#谐波JH11电机有这个模式
+        """
+        control the motor in position and velocity control mode 电机位置速度控制模式
+        :param Motor: Motor object 电机对象
+        :param P_desired: desired position 期望位置
+        :param V_desired: desired velocity 期望速度
+        :return: None
+        """
+        if Motor.SlaveID not in self.motors_map:
+            print("Control Pos_Vel Error : Motor ID not found")
+            return
+        motorid = 0x400 + Motor.SlaveID
+        data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        P_desired_uint8s = float_to_uint8s(P_desired)
+        V_desired_uint8s = float_to_uint8s(V_desired)
+        data_buf[0:4] = P_desired_uint8s
+        data_buf[4:8] = V_desired_uint8s
+        self.__send_data(motorid, data_buf)
+        # time.sleep(0.001)
+        self.recv()  # receive the data from serial port
+
+    def control_Vel_CSP(self, Motor, Vel_desired):#谐波JH11电机有这个模式
+        """
+        control the motor in velocity control mode 电机速度控制模式
+        :param Motor: Motor object 电机对象
+        :param Vel_desired: desired velocity 期望速度
+        """
+        if Motor.SlaveID not in self.motors_map:
+            print("control_VEL ERROR : Motor ID not found")
+            return
+        motorid = 0x500 + Motor.SlaveID
+        data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        Vel_desired_uint8s = float_to_uint8s(Vel_desired)
+        data_buf[0:4] = Vel_desired_uint8s
+        self.__send_data(motorid, data_buf)
+        self.recv()  # receive the data from serial port
+
+    def control_Tor_CSP(self, Motor, Tor_desired):#谐波JH11电机有这个模式
+        """
+        control the motor in velocity control mode 电机速度控制模式
+        :param Motor: Motor object 电机对象
+        :param Vel_desired: desired velocity 期望速度
+        """
+        if Motor.SlaveID not in self.motors_map:
+            print("control_VEL ERROR : Motor ID not found")
+            return
+        motorid = 0x600 + Motor.SlaveID
+        data_buf = np.array([0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00], np.uint8)
+        Tor_desired_uint8s = float_to_uint8s(Tor_desired)
+        data_buf[0:4] = Tor_desired_uint8s
         self.__send_data(motorid, data_buf)
         self.recv()  # receive the data from serial port
 
@@ -568,7 +621,7 @@ class DM_Motor_Type(IntEnum):
     DMH3510 = 9
     DMH6215 = 10
     DMG6220 = 11
-
+    DMJH11 = 12
 
 class DM_variable(IntEnum):
     UV_Value = 0
@@ -623,3 +676,6 @@ class Control_Type(IntEnum):
     POS_VEL = 2
     VEL = 3
     Torque_Pos = 4
+    POS_VEL_CSP = 5
+    VEL_CSP = 6
+    Torque_CSP = 7

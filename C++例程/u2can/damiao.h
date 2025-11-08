@@ -11,9 +11,15 @@
 #include <cstdint>
 #include <cmath>
 
+
 #define POS_MODE 0x100
 #define SPEED_MODE 0x200
 #define POSI_MODE 0x300
+
+#define POS_CSP_MODE 0x400
+#define SPEED_CSP_MODE 0x500
+#define TOR_CSP_MODE 0x600
+
 #define max_retries 20
 #define retry_interval 50000
 namespace damiao
@@ -38,6 +44,7 @@ namespace damiao
         DMH3510,
         DMH6215,
         DMG6220,
+        DMJH11,
         Num_Of_Motor
     };
 
@@ -45,11 +52,15 @@ namespace damiao
      * @brief 电机控制模式
      */
     enum Control_Mode
-    {
+    {//这是改控制模式对应的编码
         MIT_MODE=1,
         POS_VEL_MODE=2,
         VEL_MODE=3,
         POS_FORCE_MODE=4,
+
+        POS_VEL_CSP_MODE=5,
+        VEL_CSP_MODE=6,
+        TORQUE_CSP_MODE=7,
     };
 
     /*
@@ -168,7 +179,8 @@ namespace damiao
                     {12.5,20, 200},  // DM10010
                     {12.5,280,1},    // DMH3510
                     {12.5,45,10},    // DMH6215
-                    {12.5,45,10}     // DMG6220
+                    {12.5,45,10} ,    // DMG6220
+                    {12.5,10,12}     // DMJH11
             };
 
     class Motor
@@ -501,6 +513,69 @@ namespace damiao
             memcpy(data_buf.data() + 4, &vel, sizeof(uint16_t));
             memcpy(data_buf.data() + 6, &i, sizeof(uint16_t));
             id=id+POSI_MODE;
+            send_data.modify(id, data_buf.data());
+            serial_->send((uint8_t*)&send_data, sizeof(can_send_frame));
+            this->receive();
+        }
+
+
+        /*
+         * @description: Position Control Mode with velocity  周期同步位置速度控制模式
+         * @param pos: position 位置
+         * @param vel: velocity 速度
+         * @param DM_Motor: Motor object 电机对象
+         */
+        void control_pos_vel_csp(Motor &DM_Motor,float pos,float vel)
+        {
+            Motor_id id = DM_Motor.GetSlaveId();
+            if(motors.find(id) == motors.end())
+            {
+                throw std::runtime_error("POS_VEL_CSP ERROR : Motor_Control id not found");
+            }
+            std::array<uint8_t, 8> data_buf{};
+            memcpy(data_buf.data(), &pos, sizeof(float));
+            memcpy(data_buf.data() + 4, &vel, sizeof(float));
+            id += POS_CSP_MODE;
+            send_data.modify(id, data_buf.data());
+            serial_->send(reinterpret_cast<uint8_t*>(&send_data), sizeof(can_send_frame));
+            this->receive();
+        }
+
+        /*
+         * @description: velocity control mode 周期同步速度控制模式
+         * @param DM_Motor: motor object 电机对象
+         * @param vel: velocity 速度
+         */
+        void control_vel_csp(Motor &DM_Motor,float vel)
+        {
+            Motor_id id =DM_Motor.GetSlaveId();
+            if(motors.find(id) == motors.end())
+            {
+                throw std::runtime_error("VEL ERROR : id not found");
+            }
+            std::array<uint8_t, 8> data_buf = {0};
+            memcpy(data_buf.data(), &vel, sizeof(float));
+            id=id+SPEED_CSP_MODE;
+            send_data.modify(id, data_buf.data());
+            serial_->send((uint8_t*)&send_data, sizeof(can_send_frame));
+            this->receive();
+        }
+
+        /*
+         * @description: torque control mode 周期同步力矩控制模式
+         * @param DM_Motor: motor object 电机对象
+         * @param tor: torque 力矩
+         */
+        void control_tor_csp(Motor &DM_Motor,float tor)
+        {
+            Motor_id id =DM_Motor.GetSlaveId();
+            if(motors.find(id) == motors.end())
+            {
+                throw std::runtime_error("VEL ERROR : id not found");
+            }
+            std::array<uint8_t, 8> data_buf = {0};
+            memcpy(data_buf.data(), &tor, sizeof(float));
+            id=id+TOR_CSP_MODE;
             send_data.modify(id, data_buf.data());
             serial_->send((uint8_t*)&send_data, sizeof(can_send_frame));
             this->receive();
