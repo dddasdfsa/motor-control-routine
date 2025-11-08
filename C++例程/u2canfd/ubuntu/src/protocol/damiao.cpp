@@ -375,6 +375,32 @@ void Motor_Control::control_vel(Motor &DM_Motor,float vel)
     usb_hw->fdcanFrameSend(mydata, can_id);
 }
    
+void Motor_Control::control_pos_force(Motor &DM_Motor,float pos,uint16_t vel,uint16_t i)
+{
+    uint16_t id = DM_Motor.GetCanId();
+    if(motors.find(id) == motors.end())
+    {
+        std::cerr << "[Error] In control_pos_vel_tau,no motor with id " << DM_Motor.GetCanId() << " is registered." << std::endl;
+        std::exit(-1);  // 终止程序，返回非 0 表示错误
+    }
+
+    uint16_t can_id = id+POS_FORCE_MODE;
+    uint8_t *pbuf;
+    pbuf=(uint8_t*)&pos;
+
+    uint8_t data[8];
+    data[0] = *pbuf;
+    data[1] = *(pbuf+1);
+    data[2] = *(pbuf+2);
+    data[3] = *(pbuf+3);
+    data[4] = vel;
+    data[5]=  vel>>8;
+    data[6] = i;
+    data[7] = i>>8;
+  
+    std::vector<uint8_t> mydata = {data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7]};
+    usb_hw->fdcanFrameSend(mydata, can_id);
+}
 
 void Motor_Control::receive_param(uint8_t* data)
 {

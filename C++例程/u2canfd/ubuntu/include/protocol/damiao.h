@@ -219,6 +219,7 @@ using duration = std::chrono::duration<double>;
     void control_mit(Motor &DM_Motor, float kp, float kd, float q, float dq, float tau);
     void control_pos_vel(Motor &DM_Motor,float pos,float vel);
     void control_vel(Motor &DM_Motor,float vel);
+    void control_pos_force(Motor &DM_Motor,float pos,uint16_t vel,uint16_t i);
     void receive_param(uint8_t* data);
 
     bool switchControlMode(Motor &DM_Motor,Control_Mode_Code mode);//切换电机控制模式
