@@ -11,7 +11,7 @@ Limit_param limit_param[Num_Of_Motor]=
         {12.5, 10, 28},   // DM4340          check
         {12.5, 20, 28},   // DM4340_48V      check
         {12.5, 45, 12},   // DM6006          check
-        {12.566, 20, 120},   // DM6248       check
+        {12.566, 20, 120},   // DM6248P       check
         {12.5, 45, 20},   // DM8006          check
         {12.5, 45, 54},   // DM8009          check
         {12.5, 25, 200},  // DM10010L        check

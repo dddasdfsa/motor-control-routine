@@ -34,7 +34,7 @@ namespace damiao
         DM4340 ,
         DM4340_48V ,
         DM6006 ,
-        DM6248 ,
+        DM6248P ,
         DM8006 ,
         DM8009 ,
         DM10010L ,
