@@ -4,7 +4,6 @@ from enum import IntEnum
 from struct import unpack
 from struct import pack
 
-
 class Motor:
     def __init__(self, MotorType, SlaveID, MasterID):
         """
@@ -32,22 +31,29 @@ class Motor:
 
     def getPosition(self):
         """
-        get the position of the motor 获取电机位置
-        :return: the position of the motor 电机位置
+        get the position of the motor 获取电机位置（缓存值）
+        说明：DM电机为一发一收模式，仅在发送控制帧或调用
+        `MotorControl.refresh_motor_status(motor)` 后，电机对象的状态才会刷新。
+        本函数返回最近一次刷新后的缓存值，不会主动轮询设备。
+        :return: the position of the motor 电机位置（缓存）
         """
         return self.state_q
 
     def getVelocity(self):
         """
-        get the velocity of the motor 获取电机速度
-        :return: the velocity of the motor 电机速度
+        get the velocity of the motor 获取电机速度（缓存值）
+        说明：仅在发送控制帧或调用 `refresh_motor_status` 后更新。
+        本函数返回缓存值，不主动轮询设备。
+        :return: the velocity of the motor 电机速度（缓存）
         """
         return self.state_dq
 
     def getTorque(self):
         """
-        get the torque of the motor 获取电机力矩
-        :return: the torque of the motor 电机力矩
+        get the torque of the motor 获取电机力矩（缓存值）
+        说明：仅在发送控制帧或调用 `refresh_motor_status` 后更新。
+        本函数返回缓存值，不主动轮询设备。
+        :return: the torque of the motor 电机力矩（缓存）
         """
         return self.state_tau
 
@@ -62,17 +68,27 @@ class Motor:
         else:
             return None
 
-
 class MotorControl:
     send_data_frame = np.array(
         [0x55, 0xAA, 0x1e, 0x03, 0x01, 0x00, 0x00, 0x00, 0x0a, 0x00, 0x00, 0x00, 0x00, 0, 0, 0, 0, 0x00, 0x08, 0x00,
          0x00, 0, 0, 0, 0, 0, 0, 0, 0, 0x00], np.uint8)
-    #                4310           4310_48        4340           4340_48
-    Limit_Param = [[12.5, 30, 10], [12.5, 50, 10], [12.5, 8, 28], [12.5, 10, 28],
-                   # 6006           8006           8009            10010L         10010
-                   [12.5, 45, 20], [12.5, 45, 40], [12.5, 45, 54], [12.5, 25, 200], [12.5, 20, 200],
-                   # H3510            DMG6215      DMH6220                  DMJH11
-                   [12.5 , 280 , 1],[12.5 , 45 , 10],[12.5 , 45 , 10],  [12.5 , 10 , 12]]
+    Limit_Param = [
+        [12.5,    30,  10],  # DM4310
+        [12.5,    50,  10],  # DM4310_48
+        [12.5,    10,  28],  # DM4340
+        [12.5,    10,  28],  # DM4340_48
+        [12.5,    45,  20],  # DM6006
+        [12.5,    45,  40],  # DM8006
+        [12.5,    45,  54],  # DM8009
+        [12.5,    25, 200],  # DM10010L
+        [12.5,    20, 200],  # DM10010
+        [12.5,   280,   1],  # DMH3510
+        [12.5,    45,  10],  # DMG6215
+        [12.5,    45,  10],  # DMH6220
+        [12.5 ,   10 , 12],  # DMJH11
+        [12.566,  20, 120],  # DM6248P
+        [12.566,  50,   5],  # DM3507
+    ]
 
     def __init__(self, serial_device):
         """
@@ -154,7 +170,7 @@ class MotorControl:
         data_buf[0:4] = P_desired_uint8s
         data_buf[4:8] = V_desired_uint8s
         self.__send_data(motorid, data_buf)
-        # time.sleep(0.001)
+        time.sleep(0.001)
         self.recv()  # receive the data from serial port
 
     def control_Vel(self, Motor, Vel_desired):
@@ -293,6 +309,7 @@ class MotorControl:
     def recv(self):
         # 把上次没有解析完的剩下的也放进来
         data_recv = b''.join([self.data_save, self.serial_.read_all()])
+        # print(data_recv)
         packets = self.__extract_packets(data_recv)
         for packet in packets:
             data = packet[7:15]
@@ -338,7 +355,6 @@ class MotorControl:
                     recv_dq = uint_to_float(dq_uint, -DQ_MAX, DQ_MAX, 12)
                     recv_tau = uint_to_float(tau_uint, -TAU_MAX, TAU_MAX, 12)
                     self.motors_map[MasterID].recv_data(recv_q, recv_dq, recv_tau)
-
 
     def __process_set_param_packet(self, data, CANID, CMD):
         if CMD == 0x11 and (data[2] == 0x33 or data[2] == 0x55):
@@ -387,6 +403,8 @@ class MotorControl:
         :param data:
         :return:
         """
+        # 打印发送的原始hex数据
+        # print(f"Sent raw HEX data (MotorID 0x{motor_id:02X}): {data.tobytes().hex()}")
         self.send_data_frame[13] = motor_id & 0xff
         self.send_data_frame[14] = (motor_id >> 8)& 0xff  #id high 8 bits
         self.send_data_frame[21:29] = data
@@ -533,13 +551,14 @@ class MotorControl:
 
 def LIMIT_MIN_MAX(x, min, max):
     if x <= min:
-        x = min
+        return min
     elif x > max:
-        x = max
+        return max
+    return x
 
 
 def float_to_uint(x: float, x_min: float, x_max: float, bits):
-    LIMIT_MIN_MAX(x, x_min, x_max)
+    x = LIMIT_MIN_MAX(x, x_min, x_max)
     span = x_max - x_min
     data_norm = (x - x_min) / span
     return np.uint16(data_norm * ((1 << bits) - 1))
@@ -622,54 +641,55 @@ class DM_Motor_Type(IntEnum):
     DMH6215 = 10
     DMG6220 = 11
     DMJH11 = 12
+    DM6248P = 13
+    DM3507 = 14
 
 class DM_variable(IntEnum):
-    UV_Value = 0
-    KT_Value = 1
-    OT_Value = 2
-    OC_Value = 3
-    ACC = 4
-    DEC = 5
-    MAX_SPD = 6
-    MST_ID = 7
-    ESC_ID = 8
-    TIMEOUT = 9
-    CTRL_MODE = 10
-    Damp = 11
-    Inertia = 12
-    hw_ver = 13
-    sw_ver = 14
-    SN = 15
-    NPP = 16
-    Rs = 17
-    LS = 18
-    Flux = 19
-    Gr = 20
-    PMAX = 21
-    VMAX = 22
-    TMAX = 23
-    I_BW = 24
-    KP_ASR = 25
-    KI_ASR = 26
-    KP_APR = 27
-    KI_APR = 28
-    OV_Value = 29
-    GREF = 30
-    Deta = 31
-    V_BW = 32
-    IQ_c1 = 33
-    VL_c1 = 34
-    can_br = 35
-    sub_ver = 36
-    u_off = 50
-    v_off = 51
-    k1 = 52
-    k2 = 53
-    m_off = 54
-    dir = 55
-    p_m = 80
-    xout = 81
-
+    UV_Value = 0      # 欠压值 (Under Voltage threshold)
+    KT_Value = 1      # 转矩常数或相关校准系数 (Torque constant / calibration)
+    OT_Value = 2      # 过温阈值 (Over Temperature threshold)
+    OC_Value = 3      # 过流阈值 (Over Current threshold)
+    ACC = 4           # 加速时间或加速度设定 (Acceleration)
+    DEC = 5           # 减速时间或减速度设定 (Deceleration)
+    MAX_SPD = 6       # 最大速度 (Maximum speed)
+    MST_ID = 7        # 主设备/主控 ID (Master ID)
+    ESC_ID = 8        # 从设备或 ESC（电子调速器）ID (ESC / slave ID)
+    TIMEOUT = 9       # 通信或动作超时时间 (Timeout duration)
+    CTRL_MODE = 10    # 控制模式（例如速度/转矩/位置）(Control mode)
+    Damp = 11         # 阻尼系数 (Damping)
+    Inertia = 12      # 惯量参数 (Inertia)
+    hw_ver = 13       # 硬件版本号 (Hardware version)
+    sw_ver = 14       # 软件版本号 (Software/firmware version)
+    SN = 15           # 设备序列号 (Serial Number)
+    NPP = 16          # 每转脉冲数或编码器分辨率 (Number of pulses per revolution)
+    Rs = 17           # 定子电阻 (Stator resistance Rs)
+    LS = 18           # 电感量或定子电感 (Stator inductance Ls)
+    Flux = 19         # 磁通或磁链值 (Flux linkage)
+    Gr = 20           # 减速比或齿轮比 (Gear ratio)
+    PMAX = 21         # 最大功率 (Maximum power)
+    VMAX = 22         # 最大电压或速度上限 (Maximum voltage/speed limit)
+    TMAX = 23         # 最大扭矩/温度阈值 (Maximum torque/temperature)
+    I_BW = 24         # 电流带宽（环路带宽）(Current loop bandwidth)
+    KP_ASR = 25       # ASR 回路比例增益 Kp (Proportional gain for ASR)
+    KI_ASR = 26       # ASR 回路积分增益 Ki (Integral gain for ASR)
+    KP_APR = 27       # APR 回路比例增益 Kp (Proportional gain for APR)
+    KI_APR = 28       # APR 回路积分增益 Ki (Integral gain for APR)
+    OV_Value = 29     # 过压阈值 (Over Voltage threshold)
+    GREF = 30         # 参考频率/参考增益 (Reference gain or frequency)
+    Deta = 31         # 微小偏差值或增量 (Delta / small offset)
+    V_BW = 32         # 速度环带宽 (Velocity loop bandwidth)
+    IQ_c1 = 33        # 电流或电流限制相关参数 IQ_c1 (Current-related constant)
+    VL_c1 = 34        # 速度或电压相关常数 VL_c1 (Velocity/voltage constant)
+    can_br = 35       # CAN 总线波特率或配置 (CAN bus baud rate)
+    sub_ver = 36      # 子版本号 (Sub-version)
+    u_off = 50        # U 相偏置/电压偏移 (Phase U offset)
+    v_off = 51        # V 相偏置/电压偏移 (Phase V offset)
+    k1 = 52           # 校准系数 k1 (Calibration coefficient)
+    k2 = 53           # 校准系数 k2 (Calibration coefficient)
+    m_off = 54        # 机械偏移或位置偏移 (Mechanical offset)
+    dir = 55          # 旋转方向（正/反）(Direction)
+    p_m = 80          # 极对数或机械极数 (Pole pairs / mechanical poles)
+    xout = 81         # 外部输出或诊断输出寄存器 (External output / diagnostic output)
 
 class Control_Type(IntEnum):
     MIT = 1
