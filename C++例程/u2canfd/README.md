@@ -5,7 +5,7 @@
 
 硬件设备需要达妙的**USB转单路或者双路CANFD设备**。
 
-程序测试环境是ubuntu20.04,ubuntu22.04。
+程序测试环境是gcc13。
 
 程序默认运行的效果是使用**USB转双路CANFD设备*先让canid为0x01、mstid为0x11的DM4310电机控制模式设置为MIT模式，然后使能，然后旋转，**电机波特率为5M**。
 
@@ -49,7 +49,7 @@ sudo nano /etc/udev/rules.d/99-usb.rules
 SUBSYSTEM=="usb", ATTR{idVendor}=="34b7", ATTR{idProduct}=="6877", MODE="0666"
 SUBSYSTEM=="usb", ATTR{idVendor}=="34b7", ATTR{idProduct}=="6632", MODE="0666"
 ```
-第一行是USB转单路CANFD设备，第二行是第一行是USB转双路CANFD设备。
+第一行是USB转**单路**CANFD设备，第二行是第一行是USB转**双路**CANFD设备。
 
 然后重新加载并触发：
 ```shell
@@ -67,7 +67,7 @@ cd ~/catkin_ws/u2canfd/build
 
 上面图片里的SN后面的一串数字就是该设备的的Serial_Number，
 
-接着复制该Serial\_Number，打开main.cpp，替换程序里的Serial\_Number,同时选择是USB转单路CANFD还是双路CANFD，如下图所示：
+接着复制该Serial\_Number，打开main.cpp，替换程序里的Serial\_Number，同时选择是**USB转单路CANFD**还是**双路CANFD**，如下图所示：
 
 <img src="./docs/motor_control.png" width="850" height="auto">
 
