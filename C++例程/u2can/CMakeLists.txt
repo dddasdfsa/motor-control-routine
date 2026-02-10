@@ -1,12 +1,12 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.10)
 
-project (DM_Linux_Drive)
+project (dm_Linux_Drive)
 
-set(SOURCES
-    damiao.h
-    SerialPort.h
-    test_damiao.cpp
-)
+# 设置 C++ 标准
+set(CMAKE_CXX_STANDARD 14)
 
-add_executable(DM_Linux_Drive ${SOURCES})
 
+add_executable(test_damiao src/test_damiao.cpp)
+
+
+include_directories(${CMAKE_SOURCE_DIR}/include)
